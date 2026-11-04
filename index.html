@@ -133,7 +133,7 @@ body.dmx .mon{display:block}
     <div id="groups" class="chips"></div>
     <div id="fixtures"></div>
     <button id="addFixture" class="btn add">＋ Ajouter un projecteur</button>
-    <p id="empty" class="hint">Ajoute tes projecteurs (nom, type, adresse) pour monter ton plan de feu. Sans matériel, rien n'est envoyé : tu peux tout tester à blanc.</p>
+    <p id="empty" class="hint">Ajoute tes projecteurs (nom, marque, modèle), puis touche « Connecter » sur chacun pour le piloter en Bluetooth.</p>
   </section>
 
   <section id="panel" class="disabled">
@@ -264,7 +264,7 @@ body.dmx .mon{display:block}
   <h3>Réglages</h3>
   <label>Connexion
     <select id="sTransport">
-      <option value="sim">Test à blanc (sans lampes)</option>
+      <option value="sim">Bluetooth (sans passerelle)</option>
       <option value="bridge">Passerelle Art-Net</option>
     </select></label>
   <label>Adresse de la passerelle <input id="sUrl" placeholder="ws://localhost:8080"></label>
