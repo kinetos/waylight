@@ -270,6 +270,7 @@ body.dmx .mon{display:block}
   <label>Adresse de la passerelle <input id="sUrl" placeholder="ws://localhost:8080"></label>
   <label>Durée du fondu entre mémoires (s) <input id="sFade" type="number" min="0" max="60" step="0.5"></label>
   <label class="check"><input type="checkbox" id="sDmx"> Afficher les détails techniques (DMX)</label>
+  <button id="sScan" class="btn ghost" type="button">Chercher un projecteur (diagnostic)</button>
   <label class="check"><input type="checkbox" id="sAll"> Bluetooth : afficher tous les appareils (si ton projecteur n'apparaît pas)</label>
   <details id="sDiag">
     <summary>Diagnostic et sauvegarde</summary>
@@ -1052,7 +1053,23 @@ body.dmx .mon{display:block}
     }
   }
 
-  const api = { nanlite, NanliteLink, MeshLink, hasBle, nlFrame, logs, log, opts };
+  /* Recherche libre : montre le nom et les services d'un appareil choisi dans la liste de Bluefy (diagnostic) */
+  async function scan() {
+    if (!hasBle()) throw new Error('Bluetooth indisponible : ouvre la page dans Bluefy.');
+    const optional = [NL.svc, 0x1800, 0x1801, 0x180a, 0x180f, 0x1827, 0x1828, 0xfff0, 0xffe0, 0xfe59];
+    const dev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: optional });
+    log('Scan : appareil ' + (dev.name || '(sans nom)') + ' · id ' + String(dev.id).slice(0, 8));
+    let services = [];
+    try {
+      const server = await dev.gatt.connect();
+      const all = await server.getPrimaryServices();
+      services = all.map(s => s.uuid);
+      log('Scan : services ' + (services.join(', ') || '(aucun visible)'));
+      server.disconnect();
+    } catch (e) { log('Scan : connexion impossible (' + (e && e.message || e) + ')'); }
+    return { name: dev.name || '(sans nom)', services };
+  }
+  const api = { nanlite, NanliteLink, MeshLink, hasBle, nlFrame, logs, log, opts, scan };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Drivers = api;
 })(typeof self !== 'undefined' ? self : globalThis);
 </script>
@@ -1696,6 +1713,11 @@ $('#btnSettings').onclick = () => {
   $('#sDmx').checked = !!db.settings.showDmx; $('#sAll').checked = !!db.settings.bleAll;
   $('#sLog').value = Drivers.logs.join('\n') || "(rien pour l'instant)";
   dS.showModal();
+};
+$('#sScan').onclick = async () => {
+  const out = $('#sLog'); out.value = 'Ouverture de la liste Bluetooth…';
+  try { const r = await Drivers.scan(); out.value = 'Appareil : ' + r.name + '\nServices : ' + (r.services.join('\n           ') || '(aucun visible)') + '\n\n' + Drivers.logs.join('\n'); }
+  catch (e) { out.value = 'Échec : ' + ((e && e.message) || e) + '\n\n' + Drivers.logs.join('\n'); }
 };
 $('#sClose').onclick = () => {
   db.settings.transport = $('#sTransport').value;
