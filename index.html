@@ -936,7 +936,7 @@ body.dmx .mon{display:block}
     nextSeq(n = 1) { const s = this.net.seq; this.net.seq = (s + n) & 0xffffff; this.onSeq(this.net.seq); return s; }
     async openProxy() {
       log('Mesh : recherche proxy');
-      this.dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [PROXY] }], optionalServices: [PROXY] });
+      this.dev = await navigator.bluetooth.requestDevice((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROXY, PROV] } : { filters: [{ services: [PROXY] }], optionalServices: [PROXY] }));
       log('Mesh : ' + (this.dev.name || '(sans nom)'));
       this.dev.addEventListener('gattserverdisconnected', () => { log('Mesh déconnecté'); this.inCh = null; this.onChange && this.onChange(); });
       const server = await this.dev.gatt.connect();
@@ -1010,7 +1010,7 @@ body.dmx .mon{display:block}
     /** Étape 1 : se connecte à un projecteur en mode appairage et l'enrôle dans le réseau. */
     async provisionNode(addr, onStep = () => {}) {
       onStep('Recherche du projecteur en mode appairage…');
-      const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [PROV] }], optionalServices: [PROV] });
+      const dev = await navigator.bluetooth.requestDevice((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROV, PROXY] } : { filters: [{ services: [PROV] }], optionalServices: [PROV] }));
       onStep('Connexion…');
       const server = await dev.gatt.connect();
       const svc = await server.getPrimaryService(PROV);
@@ -1740,6 +1740,7 @@ $('#sImport').onclick = () => {
     save(); renderFixtures(); renderScenes(); toast('Config importée ✓');
   } catch { toast('Texte invalide : colle une config exportée dans le cadre'); }
 };
+if (!db.settings.bleAllV2) { db.settings.bleAll = true; db.settings.bleAllV2 = true; }
 Drivers.opts.bleAll = !!db.settings.bleAll;
 
 /* ---------- Démarrage ---------- */
