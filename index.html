@@ -857,6 +857,7 @@ body.dmx .mon{display:block}
   const logs = [], opts = { bleAll: false };
   const hex = u => Array.from(u, x => x.toString(16).padStart(2, '0')).join(' ');
   function log(msg) { logs.push(new Date().toLocaleTimeString('fr-FR') + '  ' + msg); if (logs.length > 300) logs.shift(); }
+  const NL_NAMES = ['NL', 'NW', 'NANLITE', 'Nanlite', 'NANLUX', 'Nanlux', 'NanLux', 'Evoke', 'EVOKE', 'Forza', 'FORZA', 'Pavo', 'PAVO', 'Nan', 'NAN'];
   const U = n => typeof n === 'number' ? n.toString(16).padStart(8, '0') + '-0000-1000-8000-00805f9b34fb' : n;
   const reqDev = o => {
     const c = Object.assign({}, o);
@@ -879,7 +880,7 @@ body.dmx .mon{display:block}
       const optional = [NL.svc, 0x1828, 0x1827, 0x180a];
       this.dev = await reqDev(opts.bleAll
         ? { acceptAllDevices: true, optionalServices: optional }
-        : { filters: [{ services: [NL.svc] }], optionalServices: optional });
+        : { filters: [{ services: [NL.svc] }].concat(NL_NAMES.map(p => ({ namePrefix: p }))), optionalServices: optional });
       log('Appareil choisi : ' + (this.dev.name || '(sans nom)'));
       this.dev.addEventListener('gattserverdisconnected', () => { log('Déconnecté : ' + (this.dev.name || '')); this.rx = null; this.onChange && this.onChange(); });
       const server = await this.dev.gatt.connect();
@@ -1445,7 +1446,7 @@ function toast(msg, ms = 4000) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, ms);
 }
-const bleErr = e => (e && e.name === 'NotFoundError') ? 'Aucun projecteur choisi.' : 'Bluetooth : ' + ((e && e.name && e.name !== 'Error' ? e.name + ' – ' : '') + ((e && e.message) || String(e))) + ' (détails dans Réglages › journal)';
+const bleErr = e => (e && e.name === 'NotFoundError') ? 'Aucun projecteur choisi. Ta lampe n\'apparaissait pas ? Réglages › « afficher tous les appareils ».' : 'Bluetooth : ' + ((e && e.name && e.name !== 'Error' ? e.name + ' – ' : '') + ((e && e.message) || String(e))) + ' (détails dans Réglages › journal)';
 function linkFor(key, make) {
   let l = links.get(key);
   if (!l) {
@@ -1747,7 +1748,7 @@ $('#sImport').onclick = () => {
     save(); renderFixtures(); renderScenes(); toast('Config importée ✓');
   } catch { toast('Texte invalide : colle une config exportée dans le cadre'); }
 };
-if (!db.settings.bleAllV2) { db.settings.bleAll = true; db.settings.bleAllV2 = true; }
+if (!db.settings.bleAllV3) { db.settings.bleAll = false; db.settings.bleAllV3 = true; }
 Drivers.opts.bleAll = !!db.settings.bleAll;
 
 /* ---------- Démarrage ---------- */
