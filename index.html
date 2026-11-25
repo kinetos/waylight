@@ -1511,7 +1511,8 @@ function syncDialog(ev) {
   $('#fKel').hidden = editing ? !editing.model : false;
   $('#fConnWrap').hidden = !!editing || !b.ble || !!(curModel() || {}).noBle;
   $('#fProfileWrap').hidden = !!editing || ble;
-  $('#fBleHint').textContent = ble ? BLE_HINTS[b.id]
+  $('#fBleHint').textContent = (b.ble && !Drivers.hasBle()) ? "Bluetooth indisponible : cette page n'est pas ouverte dans Bluefy (ou Bluefy n'a pas l'autorisation Bluetooth dans les Réglages iOS). Ouvre-la dans Bluefy pour chercher le projecteur."
+    : ble ? BLE_HINTS[b.id]
     : (curModel() || {}).noBle ? "Ce modèle n'a pas de Bluetooth Mesh : pilotage en DMX seulement (passerelle)."
     : b.id === 'astera' ? "Astera : pas de Bluetooth public, pilotage en DMX via la passerelle. Vérifie le mode DMX du projecteur dans « Avancé »."
     : b.ble ? 'Mode DMX : branche la passerelle (voir Réglages).' : 'Pilotage en DMX via la passerelle (voir Réglages).';
@@ -1743,7 +1744,7 @@ Drivers.opts.bleAll = !!db.settings.bleAll;
 
 /* ---------- Démarrage ---------- */
 document.body.classList.toggle('dmx', !!db.settings.showDmx);
-$('#bleWarn').hidden = Drivers.hasBle() || !db.fixtures.some(isBle);
+$('#bleWarn').hidden = Drivers.hasBle();
 renderFixtures(); renderScenes(); transport.connect();
 /* Garde l'écran allumé : sur iPhone, un écran verrouillé suspend la page et coupe le Bluetooth. */
 let wl = null;
