@@ -857,6 +857,13 @@ body.dmx .mon{display:block}
   const logs = [], opts = { bleAll: false };
   const hex = u => Array.from(u, x => x.toString(16).padStart(2, '0')).join(' ');
   function log(msg) { logs.push(new Date().toLocaleTimeString('fr-FR') + '  ' + msg); if (logs.length > 300) logs.shift(); }
+  const U = n => typeof n === 'number' ? n.toString(16).padStart(8, '0') + '-0000-1000-8000-00805f9b34fb' : n;
+  const reqDev = o => {
+    const c = Object.assign({}, o);
+    if (c.optionalServices) c.optionalServices = c.optionalServices.map(U);
+    if (c.filters) c.filters = c.filters.map(f => f.services ? Object.assign({}, f, { services: f.services.map(U) }) : f);
+    return navigator.bluetooth.requestDevice(c);
+  };
   const hasBle = () => typeof navigator !== 'undefined' && !!navigator.bluetooth;
   async function writeFast(ch, bytes) { // sans réponse si possible
     if (ch.writeValueWithoutResponse) return ch.writeValueWithoutResponse(bytes);
@@ -870,7 +877,7 @@ body.dmx .mon{display:block}
     async connect() {
       log('Nanlite : recherche' + (opts.bleAll ? ' (tous appareils)' : ''));
       const optional = [NL.svc, 0x1828, 0x1827, 0x180a];
-      this.dev = await navigator.bluetooth.requestDevice(opts.bleAll
+      this.dev = await reqDev(opts.bleAll
         ? { acceptAllDevices: true, optionalServices: optional }
         : { filters: [{ services: [NL.svc] }], optionalServices: optional });
       log('Appareil choisi : ' + (this.dev.name || '(sans nom)'));
@@ -936,11 +943,11 @@ body.dmx .mon{display:block}
     nextSeq(n = 1) { const s = this.net.seq; this.net.seq = (s + n) & 0xffffff; this.onSeq(this.net.seq); return s; }
     async openProxy() {
       log('Mesh : recherche proxy');
-      this.dev = await navigator.bluetooth.requestDevice((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROXY, PROV] } : { filters: [{ services: [PROXY] }], optionalServices: [PROXY] }));
+      this.dev = await reqDev((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROXY, PROV] } : { filters: [{ services: [PROXY] }], optionalServices: [PROXY] }));
       log('Mesh : ' + (this.dev.name || '(sans nom)'));
       this.dev.addEventListener('gattserverdisconnected', () => { log('Mesh déconnecté'); this.inCh = null; this.onChange && this.onChange(); });
       const server = await this.dev.gatt.connect();
-      const svc = await server.getPrimaryService(PROXY);
+      const svc = await server.getPrimaryService(U(PROXY));
       this.inCh = await svc.getCharacteristic(PROXY_IN);
       const out = await svc.getCharacteristic(PROXY_OUT);
       out.addEventListener('characteristicvaluechanged', e => this.onNotify(new Uint8Array(e.target.value.buffer)));
@@ -1010,10 +1017,10 @@ body.dmx .mon{display:block}
     /** Étape 1 : se connecte à un projecteur en mode appairage et l'enrôle dans le réseau. */
     async provisionNode(addr, onStep = () => {}) {
       onStep('Recherche du projecteur en mode appairage…');
-      const dev = await navigator.bluetooth.requestDevice((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROV, PROXY] } : { filters: [{ services: [PROV] }], optionalServices: [PROV] }));
+      const dev = await reqDev((opts.bleAll ? { acceptAllDevices: true, optionalServices: [PROV, PROXY] } : { filters: [{ services: [PROV] }], optionalServices: [PROV] }));
       onStep('Connexion…');
       const server = await dev.gatt.connect();
-      const svc = await server.getPrimaryService(PROV);
+      const svc = await server.getPrimaryService(U(PROV));
       const inCh = await svc.getCharacteristic(PROV_IN), outCh = await svc.getCharacteristic(PROV_OUT);
       const queue = [], waiters = []; let partial = null;
       outCh.addEventListener('characteristicvaluechanged', e => {
@@ -1057,7 +1064,7 @@ body.dmx .mon{display:block}
   async function scan() {
     if (!hasBle()) throw new Error('Bluetooth indisponible : ouvre la page dans Bluefy.');
     const optional = [NL.svc, 0x1800, 0x1801, 0x180a, 0x180f, 0x1827, 0x1828, 0xfff0, 0xffe0, 0xfe59];
-    const dev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: optional });
+    const dev = await reqDev({ acceptAllDevices: true, optionalServices: optional });
     log('Scan : appareil ' + (dev.name || '(sans nom)') + ' · id ' + String(dev.id).slice(0, 8));
     let services = [];
     try {
@@ -1438,7 +1445,7 @@ function toast(msg, ms = 4000) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, ms);
 }
-const bleErr = e => (e && e.name === 'NotFoundError') ? 'Aucun projecteur choisi.' : (e && e.message) || String(e);
+const bleErr = e => (e && e.name === 'NotFoundError') ? 'Aucun projecteur choisi.' : 'Bluetooth : ' + ((e && e.name && e.name !== 'Error' ? e.name + ' – ' : '') + ((e && e.message) || String(e))) + ' (détails dans Réglages › journal)';
 function linkFor(key, make) {
   let l = links.get(key);
   if (!l) {
@@ -1460,7 +1467,7 @@ const bleConnected = f => { const l = links.get(linkKey(f)); return !!(l && l.co
 async function connectFixture(f) {
   if (!Drivers.hasBle()) return toast('Bluetooth indisponible ici : ouvre la page dans Bluefy.', 6000);
   try { toast('Connexion Bluetooth…', 20000); await getLink(f).connect(); toast('Connecté ✓'); }
-  catch (e) { toast(bleErr(e), 7000); }
+  catch (e) { try { Drivers.log('Erreur connexion : ' + (e && e.name) + ' / ' + ((e && e.message) || e)); } catch {} toast(bleErr(e), 9000); }
 }
 
 /* ---------- Dialogue projecteur ---------- */
